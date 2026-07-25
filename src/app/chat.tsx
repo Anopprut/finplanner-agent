@@ -6,7 +6,7 @@ type Role = "user" | "assistant";
 type ToolCall = { name: string; input: unknown; output: unknown };
 type Message = { role: Role; content: string; toolCalls?: ToolCall[]; model?: string };
 type Mode = "menu" | "chat";
-type CardKey = "retirement" | "savings-goal" | "stock" | "chat";
+type CardKey = "retirement" | "savings-goal" | "stock" | "budget" | "risk" | "chat";
 
 const TOOL_LABEL: Record<string, string> = {
   future_value: "Projected future value",
@@ -14,6 +14,8 @@ const TOOL_LABEL: Record<string, string> = {
   monthly_savings_for_goal: "Monthly savings needed",
   retirement_projection: "Retirement projection",
   get_stock_quote: "Live stock quote",
+  budget_split_50_20_30: "50/20/30 budget split",
+  age_based_asset_allocation: "Age-based stock/bond mix",
 };
 
 const CARDS: {
@@ -43,6 +45,20 @@ const CARDS: {
     title: "Stock / ETF price",
     description: "Look up a real, live quote for any ticker.",
     accent: "bg-amber-50 dark:bg-amber-500/10",
+  },
+  {
+    key: "budget",
+    icon: "💰",
+    title: "50/20/30 budget split",
+    description: "Split your monthly income into needs, savings, and wants.",
+    accent: "bg-rose-50 dark:bg-rose-500/10",
+  },
+  {
+    key: "risk",
+    icon: "⚖️",
+    title: "Stock/bond mix by age",
+    description: "A quick rule-of-thumb allocation based on your age.",
+    accent: "bg-teal-50 dark:bg-teal-500/10",
   },
   {
     key: "chat",
@@ -174,6 +190,48 @@ function StockForm({ onSubmit }: { onSubmit: (message: string) => void }) {
   );
 }
 
+function BudgetForm({ onSubmit }: { onSubmit: (message: string) => void }) {
+  const [income, setIncome] = useState("4000");
+
+  function submit(e: FormEvent) {
+    e.preventDefault();
+    onSubmit(`My monthly take-home income is $${income}. Split it using the 50/20/30 rule.`);
+  }
+
+  return (
+    <form onSubmit={submit} className="flex flex-col gap-3">
+      <NumberField label="Monthly take-home income ($)" value={income} onChange={setIncome} />
+      <button
+        type="submit"
+        className="rounded-lg bg-rose-600 py-2.5 text-sm font-medium text-white hover:bg-rose-700"
+      >
+        Split my budget
+      </button>
+    </form>
+  );
+}
+
+function RiskForm({ onSubmit }: { onSubmit: (message: string) => void }) {
+  const [age, setAge] = useState("30");
+
+  function submit(e: FormEvent) {
+    e.preventDefault();
+    onSubmit(`I'm ${age} years old. Using the 100-minus-age rule, what stock/bond mix makes sense for me?`);
+  }
+
+  return (
+    <form onSubmit={submit} className="flex flex-col gap-3">
+      <NumberField label="Your age" value={age} onChange={setAge} />
+      <button
+        type="submit"
+        className="rounded-lg bg-teal-600 py-2.5 text-sm font-medium text-white hover:bg-teal-700"
+      >
+        Get suggested mix
+      </button>
+    </form>
+  );
+}
+
 export default function Chat() {
   const [mode, setMode] = useState<Mode>("menu");
   const [activeForm, setActiveForm] = useState<CardKey | null>(null);
@@ -267,6 +325,8 @@ export default function Chat() {
             {activeForm === "retirement" && <RetirementForm onSubmit={submitFromForm} />}
             {activeForm === "savings-goal" && <SavingsGoalForm onSubmit={submitFromForm} />}
             {activeForm === "stock" && <StockForm onSubmit={submitFromForm} />}
+            {activeForm === "budget" && <BudgetForm onSubmit={submitFromForm} />}
+            {activeForm === "risk" && <RiskForm onSubmit={submitFromForm} />}
           </div>
         )}
       </div>

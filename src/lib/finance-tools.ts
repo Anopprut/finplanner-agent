@@ -114,6 +114,26 @@ export function retirementProjection(params: {
   };
 }
 
+export function budgetSplit503020(params: { monthlyIncome: number }) {
+  const { monthlyIncome } = params;
+  return {
+    needs_50_percent: round2(monthlyIncome * 0.5),
+    savings_20_percent: round2(monthlyIncome * 0.2),
+    wants_30_percent: round2(monthlyIncome * 0.3),
+  };
+}
+
+export function ageBasedAssetAllocation(params: { age: number }) {
+  const { age } = params;
+  const stockPercent = Math.max(0, Math.min(100, 100 - age));
+  const bondPercent = 100 - stockPercent;
+  return {
+    stock_percent: stockPercent,
+    bond_percent: bondPercent,
+    rule: "100 minus age = suggested stock allocation; a simplified heuristic that gets more conservative as you get older, not personalized advice.",
+  };
+}
+
 function round2(n: number) {
   return Math.round(n * 100) / 100;
 }
@@ -204,6 +224,36 @@ export const FINANCE_TOOL_DEFINITIONS: ChatCompletionTool[] = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "budget_split_50_20_30",
+      description:
+        "Split a monthly income into the 50/30/20-style budget: 50% necessary expenses, 20% savings, 30% discretionary wants. Use this when the user asks how to divide up their income or wants a simple budgeting framework.",
+      parameters: {
+        type: "object",
+        properties: {
+          monthlyIncome: { type: "number", description: "Take-home monthly income, in the user's currency." },
+        },
+        required: ["monthlyIncome"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "age_based_asset_allocation",
+      description:
+        "Suggest a stock/bond split using the '100 minus age' rule of thumb. Use this when the user asks how much of their portfolio should be in stocks vs bonds, or about investment risk appropriate for their age.",
+      parameters: {
+        type: "object",
+        properties: {
+          age: { type: "number", description: "The user's current age." },
+        },
+        required: ["age"],
+      },
+    },
+  },
 ];
 
 export function runFinanceTool(name: string, input: Record<string, unknown>) {
@@ -216,6 +266,10 @@ export function runFinanceTool(name: string, input: Record<string, unknown>) {
       return monthlySavingsForGoal(input as Parameters<typeof monthlySavingsForGoal>[0]);
     case "retirement_projection":
       return retirementProjection(input as Parameters<typeof retirementProjection>[0]);
+    case "budget_split_50_20_30":
+      return budgetSplit503020(input as Parameters<typeof budgetSplit503020>[0]);
+    case "age_based_asset_allocation":
+      return ageBasedAssetAllocation(input as Parameters<typeof ageBasedAssetAllocation>[0]);
     default:
       return null;
   }
