@@ -134,6 +134,47 @@ export function ageBasedAssetAllocation(params: { age: number }) {
   };
 }
 
+export function ruleOf72(params: { annualRatePercent: number }) {
+  const { annualRatePercent } = params;
+  if (annualRatePercent <= 0) throw new Error("annualRatePercent must be positive");
+  return { years_to_double: round2(72 / annualRatePercent) };
+}
+
+export function emergencyFundTarget(params: {
+  monthlyExpenses: number;
+  incomeStability: "stable" | "variable";
+}) {
+  const { monthlyExpenses, incomeStability } = params;
+  const [minMonths, maxMonths] = incomeStability === "variable" ? [9, 12] : [3, 6];
+  return {
+    min_target: round2(monthlyExpenses * minMonths),
+    max_target: round2(monthlyExpenses * maxMonths),
+    min_months: minMonths,
+    max_months: maxMonths,
+  };
+}
+
+export function debtAvalancheOrder(params: {
+  debts: { name: string; balance: number; annualRatePercent: number }[];
+}) {
+  const { debts } = params;
+  if (!debts || debts.length === 0) throw new Error("At least one debt is required");
+
+  const ordered = [...debts].sort((a, b) => b.annualRatePercent - a.annualRatePercent);
+  const totalBalance = round2(debts.reduce((sum, d) => sum + d.balance, 0));
+
+  return {
+    payoff_order: ordered.map((d, i) => ({
+      priority: i + 1,
+      name: d.name,
+      balance: d.balance,
+      annual_rate_percent: d.annualRatePercent,
+    })),
+    total_balance: totalBalance,
+    note: "Pay minimums on everything, then put every extra dollar toward priority 1 (highest interest rate) until it's gone, then roll that payment into priority 2, and so on.",
+  };
+}
+
 function round2(n: number) {
   return Math.round(n * 100) / 100;
 }
@@ -254,6 +295,67 @@ export const FINANCE_TOOL_DEFINITIONS: ChatCompletionTool[] = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "rule_of_72",
+      description:
+        "Estimate how many years it takes an investment to double at a given annual return, using the Rule of 72 (72 / rate). Use this for 'how long to double my money' questions.",
+      parameters: {
+        type: "object",
+        properties: {
+          annualRatePercent: { type: "number", description: "Expected annual return as a percent, e.g. 8 for 8%." },
+        },
+        required: ["annualRatePercent"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "emergency_fund_target",
+      description:
+        "Compute a recommended emergency fund range from monthly essential expenses: 3-6 months for stable income, 9-12 months for variable/self-employed income. Use this for 'how much emergency fund do I need' questions.",
+      parameters: {
+        type: "object",
+        properties: {
+          monthlyExpenses: { type: "number", description: "Essential monthly expenses (rent, food, utilities, minimum debt payments)." },
+          incomeStability: {
+            type: "string",
+            enum: ["stable", "variable"],
+            description: "'stable' for a steady salary, 'variable' for freelance/commission/self-employed income.",
+          },
+        },
+        required: ["monthlyExpenses", "incomeStability"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "debt_avalanche_order",
+      description:
+        "Given a list of debts with balances and interest rates, return the payoff order using the avalanche method (highest interest rate first) — the mathematically optimal order to minimize total interest paid. Use this whenever the user has more than one debt and asks what to pay off first.",
+      parameters: {
+        type: "object",
+        properties: {
+          debts: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                name: { type: "string", description: "A label for this debt, e.g. 'Visa card' or 'car loan'." },
+                balance: { type: "number" },
+                annualRatePercent: { type: "number" },
+              },
+              required: ["name", "balance", "annualRatePercent"],
+            },
+          },
+        },
+        required: ["debts"],
+      },
+    },
+  },
 ];
 
 export function runFinanceTool(name: string, input: Record<string, unknown>) {
@@ -270,6 +372,12 @@ export function runFinanceTool(name: string, input: Record<string, unknown>) {
       return budgetSplit503020(input as Parameters<typeof budgetSplit503020>[0]);
     case "age_based_asset_allocation":
       return ageBasedAssetAllocation(input as Parameters<typeof ageBasedAssetAllocation>[0]);
+    case "rule_of_72":
+      return ruleOf72(input as Parameters<typeof ruleOf72>[0]);
+    case "emergency_fund_target":
+      return emergencyFundTarget(input as Parameters<typeof emergencyFundTarget>[0]);
+    case "debt_avalanche_order":
+      return debtAvalancheOrder(input as Parameters<typeof debtAvalancheOrder>[0]);
     default:
       return null;
   }

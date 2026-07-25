@@ -6,7 +6,15 @@ type Role = "user" | "assistant";
 type ToolCall = { name: string; input: unknown; output: unknown };
 type Message = { role: Role; content: string; toolCalls?: ToolCall[]; model?: string };
 type Mode = "menu" | "chat";
-type CardKey = "retirement" | "savings-goal" | "stock" | "budget" | "risk" | "chat";
+type CardKey =
+  | "retirement"
+  | "savings-goal"
+  | "stock"
+  | "budget"
+  | "risk"
+  | "double"
+  | "emergency"
+  | "chat";
 
 const TOOL_LABEL: Record<string, string> = {
   future_value: "Projected future value",
@@ -16,6 +24,9 @@ const TOOL_LABEL: Record<string, string> = {
   get_stock_quote: "Live stock quote",
   budget_split_50_20_30: "50/20/30 budget split",
   age_based_asset_allocation: "Age-based stock/bond mix",
+  rule_of_72: "Years to double (Rule of 72)",
+  emergency_fund_target: "Emergency fund target",
+  debt_avalanche_order: "Debt payoff order",
 };
 
 const CARDS: {
@@ -61,10 +72,24 @@ const CARDS: {
     accent: "bg-teal-50 dark:bg-teal-500/10",
   },
   {
+    key: "double",
+    icon: "⏳",
+    title: "Years to double (Rule of 72)",
+    description: "How long money takes to double at a given return.",
+    accent: "bg-violet-50 dark:bg-violet-500/10",
+  },
+  {
+    key: "emergency",
+    icon: "🛟",
+    title: "Emergency fund target",
+    description: "How much to keep on hand based on your expenses.",
+    accent: "bg-sky-50 dark:bg-sky-500/10",
+  },
+  {
     key: "chat",
     icon: "💬",
     title: "Just chat",
-    description: "Ask anything in your own words.",
+    description: "Ask anything in your own words — including multi-debt payoff order.",
     accent: "bg-slate-100 dark:bg-slate-500/10",
   },
 ];
@@ -232,6 +257,62 @@ function RiskForm({ onSubmit }: { onSubmit: (message: string) => void }) {
   );
 }
 
+function DoubleForm({ onSubmit }: { onSubmit: (message: string) => void }) {
+  const [rate, setRate] = useState("7");
+
+  function submit(e: FormEvent) {
+    e.preventDefault();
+    onSubmit(`At a ${rate}% annual return, how many years until my money doubles? Use the Rule of 72.`);
+  }
+
+  return (
+    <form onSubmit={submit} className="flex flex-col gap-3">
+      <NumberField label="Expected annual return (%)" value={rate} onChange={setRate} />
+      <button
+        type="submit"
+        className="rounded-lg bg-violet-600 py-2.5 text-sm font-medium text-white hover:bg-violet-700"
+      >
+        Calculate
+      </button>
+    </form>
+  );
+}
+
+function EmergencyForm({ onSubmit }: { onSubmit: (message: string) => void }) {
+  const [expenses, setExpenses] = useState("2000");
+  const [stability, setStability] = useState<"stable" | "variable">("stable");
+
+  function submit(e: FormEvent) {
+    e.preventDefault();
+    onSubmit(
+      `My essential monthly expenses are $${expenses} and my income is ${stability}. How big should my emergency fund be?`
+    );
+  }
+
+  return (
+    <form onSubmit={submit} className="flex flex-col gap-3">
+      <NumberField label="Essential monthly expenses ($)" value={expenses} onChange={setExpenses} />
+      <label className="flex flex-col gap-1 text-xs font-medium text-slate-600 dark:text-slate-400">
+        Income type
+        <select
+          value={stability}
+          onChange={(e) => setStability(e.target.value as "stable" | "variable")}
+          className="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+        >
+          <option value="stable">Stable salary</option>
+          <option value="variable">Variable / freelance / self-employed</option>
+        </select>
+      </label>
+      <button
+        type="submit"
+        className="rounded-lg bg-sky-600 py-2.5 text-sm font-medium text-white hover:bg-sky-700"
+      >
+        Get target range
+      </button>
+    </form>
+  );
+}
+
 export default function Chat() {
   const [mode, setMode] = useState<Mode>("menu");
   const [activeForm, setActiveForm] = useState<CardKey | null>(null);
@@ -327,6 +408,8 @@ export default function Chat() {
             {activeForm === "stock" && <StockForm onSubmit={submitFromForm} />}
             {activeForm === "budget" && <BudgetForm onSubmit={submitFromForm} />}
             {activeForm === "risk" && <RiskForm onSubmit={submitFromForm} />}
+            {activeForm === "double" && <DoubleForm onSubmit={submitFromForm} />}
+            {activeForm === "emergency" && <EmergencyForm onSubmit={submitFromForm} />}
           </div>
         )}
       </div>
